@@ -1,0 +1,6 @@
+{
+  "name": "PhotoCliqa",
+  "description": "Gerenciador e Editor Profissional de Imagens com Overlays, Ajuste de Posição/Zoom, Presets e Pixels/Desfoque Livres",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -272,20 +272,74 @@ export default function App() {
     );
   };
 
-  // Duplicar alterações, proporção, enquadramento e edições da foto atual para TODAS as fotos
+  // Duplicar estritamente as informações de logo, nome, dados e novidade para TODAS as fotos
+  // Mantém intactos na foto destino: dimensão/proporção, desfoque/blur, borracha, filtros e inversão/rotação/enquadramento
   const handleDuplicateToAll = () => {
     const currentImg = images.find((i) => i.id === selectedImageId) || images[0];
     if (!currentImg) return;
 
-    const clonedConfig = JSON.parse(JSON.stringify(currentImg.editConfig));
-    const clonedModelData = currentImg.modelData ? JSON.parse(JSON.stringify(currentImg.modelData)) : undefined;
+    const sourceConfig = currentImg.editConfig;
+    const sourceModelData = currentImg.modelData;
 
     setImages((prev) =>
-      prev.map((img) => ({
-        ...img,
-        editConfig: JSON.parse(JSON.stringify(clonedConfig)),
-        modelData: clonedModelData ? JSON.parse(JSON.stringify(clonedModelData)) : img.modelData,
-      }))
+      prev.map((img) => {
+        if (img.id === currentImg.id) {
+          return img;
+        }
+
+        const targetConfig = img.editConfig;
+
+        // Mesclagem seletiva:
+        // Preserva da própria foto: dimension, pixelateBlur (blu), magicEraser, filters e imageTransform (inversão/rotação/escala/pan)
+        // Duplica da foto atual apenas: logo, nome, dados, novidade, estilo da faixa/bandagem e posições/organização
+        const mergedConfig: EditConfig = {
+          dimension: targetConfig.dimension,
+          imageTransform: targetConfig.imageTransform
+            ? { ...targetConfig.imageTransform }
+            : { scale: 100, offsetX: 0, offsetY: 0, rotation: 0, flipHorizontal: false, flipVertical: false },
+          pixelateBlur: JSON.parse(JSON.stringify(targetConfig.pixelateBlur)),
+          magicEraser: JSON.parse(JSON.stringify(targetConfig.magicEraser)),
+          filters: targetConfig.filters ? JSON.parse(JSON.stringify(targetConfig.filters)) : undefined,
+
+          logoOverlay: JSON.parse(JSON.stringify(sourceConfig.logoOverlay)),
+          nameOverlay: JSON.parse(JSON.stringify(sourceConfig.nameOverlay)),
+          infoOverlay: JSON.parse(JSON.stringify(sourceConfig.infoOverlay)),
+          highlightOverlay: JSON.parse(JSON.stringify(sourceConfig.highlightOverlay)),
+          blackStrip: JSON.parse(JSON.stringify(sourceConfig.blackStrip)),
+          bottomNameBand: sourceConfig.bottomNameBand
+            ? JSON.parse(JSON.stringify(sourceConfig.bottomNameBand))
+            : undefined,
+          profileCard: sourceConfig.profileCard
+            ? JSON.parse(JSON.stringify(sourceConfig.profileCard))
+            : undefined,
+          organization: sourceConfig.organization
+            ? JSON.parse(JSON.stringify(sourceConfig.organization))
+            : undefined,
+        };
+
+        const mergedModelData: ModelData = sourceModelData
+          ? {
+              ...(img.modelData || {}),
+              nome: sourceModelData.nome,
+              idade: sourceModelData.idade,
+              altura: sourceModelData.altura,
+              peso: sourceModelData.peso,
+              manequim: sourceModelData.manequim,
+              pes: sourceModelData.pes,
+              novidade: sourceModelData.novidade,
+              texto_novidade: sourceModelData.texto_novidade,
+              etiquetaAtiva: sourceModelData.etiquetaAtiva,
+              etiquetaTexto: sourceModelData.etiquetaTexto,
+              logo: sourceModelData.logo,
+            }
+          : img.modelData;
+
+        return {
+          ...img,
+          editConfig: mergedConfig,
+          modelData: mergedModelData,
+        };
+      })
     );
   };
 

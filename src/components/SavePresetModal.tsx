@@ -58,7 +58,7 @@ export const SavePresetModal: React.FC<SavePresetModalProps> = ({
     const presetConfig: EditConfig = JSON.parse(JSON.stringify(currentConfig));
 
     if (!includeDimension) {
-      presetConfig.dimension = '1080x1080';
+      presetConfig.dimension = 'original';
     }
     if (!includeTransform && presetConfig.imageTransform) {
       presetConfig.imageTransform = { scale: 100, offsetX: 0, offsetY: 0 };

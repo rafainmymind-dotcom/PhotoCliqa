@@ -89,7 +89,14 @@ export async function renderImageToCanvas(
     baseHeight = naturalW / targetAspect;
   }
 
-  const transform = config.imageTransform || { scale: 100, offsetX: 0, offsetY: 0 };
+  const transform = config.imageTransform || {
+    scale: 100,
+    offsetX: 0,
+    offsetY: 0,
+    rotation: 0,
+    flipHorizontal: false,
+    flipVertical: false,
+  };
   const scale = Math.max(0.3, Math.min(3.0, (transform.scale || 100) / 100));
 
   const sWidth = baseWidth / scale;
@@ -115,11 +122,37 @@ export async function renderImageToCanvas(
     ctx.filter = `brightness(${b}%) contrast(${c}%) saturate(${s}%)`;
   }
 
+  // Draw base image centered with rotation and flipping (horizontal/vertical)
+  ctx.save();
+  ctx.translate(targetWidth / 2, targetHeight / 2);
+
+  const rotation = transform.rotation || 0;
+  if (rotation !== 0) {
+    ctx.rotate((rotation * Math.PI) / 180);
+  }
+
+  const flipH = transform.flipHorizontal ? -1 : 1;
+  const flipV = transform.flipVertical ? -1 : 1;
+  if (flipH !== 1 || flipV !== 1) {
+    ctx.scale(flipH, flipV);
+  }
+
   try {
-    ctx.drawImage(readyImg, sx, sy, sWidth, sHeight, 0, 0, targetWidth, targetHeight);
+    ctx.drawImage(
+      readyImg,
+      sx,
+      sy,
+      sWidth,
+      sHeight,
+      -targetWidth / 2,
+      -targetHeight / 2,
+      targetWidth,
+      targetHeight
+    );
   } catch (err) {
     console.warn('Could not draw base image to canvas, using studio fallback background', err);
   }
+  ctx.restore();
   ctx.filter = 'none';
 
   // Apply Vignette if enabled

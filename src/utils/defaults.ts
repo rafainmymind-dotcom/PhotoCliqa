@@ -84,11 +84,14 @@ export const DEFAULT_MODEL_DATA: ModelData = {
 };
 
 export const DEFAULT_EDIT_CONFIG: EditConfig = {
-  dimension: '1080x1080',
+  dimension: 'original',
   imageTransform: {
     scale: 100,
     offsetX: 0,
     offsetY: 0,
+    rotation: 0,
+    flipHorizontal: false,
+    flipVertical: false,
   },
   blackStrip: {
     active: false, // Desativado por padrão para não fixar barra no rodapé

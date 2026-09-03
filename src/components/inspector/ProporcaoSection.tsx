@@ -1,6 +1,17 @@
 import React from 'react';
 import { AspectDimension, EditConfig, ExportFormat, ImageItem } from '../../types';
-import { RotateCcw, Image as ImageIcon, Upload, Download, FileImage, Sparkles } from 'lucide-react';
+import {
+  RotateCcw,
+  RotateCw,
+  RefreshCw,
+  FlipHorizontal,
+  FlipVertical,
+  Image as ImageIcon,
+  Upload,
+  Download,
+  FileImage,
+  Sparkles,
+} from 'lucide-react';
 
 interface ProporcaoSectionProps {
   currentImage: ImageItem;
@@ -21,7 +32,14 @@ export const ProporcaoSection: React.FC<ProporcaoSectionProps> = ({
   setExportFormat,
   onDownloadCurrent,
 }) => {
-  const transform = config.imageTransform || { scale: 100, offsetX: 0, offsetY: 0 };
+  const transform = config.imageTransform || {
+    scale: 100,
+    offsetX: 0,
+    offsetY: 0,
+    rotation: 0,
+    flipHorizontal: false,
+    flipVertical: false,
+  };
 
   const dimensions: { id: AspectDimension; label: string; desc: string }[] = [
     { id: 'original', label: 'TAMANHO ORIGINAL', desc: 'Preserva proporção e resolução nativas' },
@@ -90,6 +108,306 @@ export const ProporcaoSection: React.FC<ProporcaoSectionProps> = ({
         </div>
       </div>
 
+      {/* Inverter & Rotacionar Foto */}
+      <div className="space-y-3 bg-slate-950/70 p-3.5 rounded-xl border border-slate-800/90 shadow-sm">
+        <div className="flex items-center justify-between">
+          <span className="text-[11px] font-bold text-slate-200 flex items-center gap-1.5">
+            <RotateCw className="w-3.5 h-3.5 text-amber-400" />
+            Inverter & Rotacionar Imagem
+          </span>
+          {((transform.rotation || 0) !== 0 || transform.flipHorizontal || transform.flipVertical) && (
+            <button
+              type="button"
+              onClick={() => {
+                updateConfig((prev) => ({
+                  ...prev,
+                  imageTransform: {
+                    ...(prev.imageTransform || { scale: 100, offsetX: 0, offsetY: 0 }),
+                    rotation: 0,
+                    flipHorizontal: false,
+                    flipVertical: false,
+                  },
+                }));
+              }}
+              className="text-[10px] text-slate-400 hover:text-amber-300 flex items-center gap-1 cursor-pointer transition-colors"
+              title="Resetar rotação e espelhamento"
+            >
+              <RotateCcw className="w-3 h-3" />
+              <span>Resetar</span>
+            </button>
+          )}
+        </div>
+
+        {/* Inverter Orientação (Espelhamento) */}
+        <div className="space-y-1.5">
+          <div className="text-[10px] text-slate-400 font-medium">Inverter Imagem (Espelhar)</div>
+          <div className="grid grid-cols-2 gap-2">
+            {/* Inverter Horizontalmente */}
+            <button
+              type="button"
+              onClick={() => {
+                updateConfig((prev) => {
+                  const current = prev.imageTransform || { scale: 100, offsetX: 0, offsetY: 0, rotation: 0 };
+                  return {
+                    ...prev,
+                    imageTransform: {
+                      ...current,
+                      flipHorizontal: !current.flipHorizontal,
+                    },
+                  };
+                });
+              }}
+              className={`py-2 px-2.5 rounded-lg border text-xs font-semibold flex items-center justify-center gap-2 cursor-pointer transition-all shadow-sm ${
+                transform.flipHorizontal
+                  ? 'bg-amber-500/20 border-amber-500 text-amber-300 ring-1 ring-amber-500/40'
+                  : 'bg-slate-900/80 border-slate-800 text-slate-300 hover:text-slate-100 hover:border-slate-700'
+              }`}
+              title="Inverter horizontalmente (espelho lateral esquerda/direita)"
+            >
+              <FlipHorizontal className="w-4 h-4 text-amber-400" />
+              <span>Inverter Horiz.</span>
+            </button>
+
+            {/* Inverter Verticalmente */}
+            <button
+              type="button"
+              onClick={() => {
+                updateConfig((prev) => {
+                  const current = prev.imageTransform || { scale: 100, offsetX: 0, offsetY: 0, rotation: 0 };
+                  return {
+                    ...prev,
+                    imageTransform: {
+                      ...current,
+                      flipVertical: !current.flipVertical,
+                    },
+                  };
+                });
+              }}
+              className={`py-2 px-2.5 rounded-lg border text-xs font-semibold flex items-center justify-center gap-2 cursor-pointer transition-all shadow-sm ${
+                transform.flipVertical
+                  ? 'bg-amber-500/20 border-amber-500 text-amber-300 ring-1 ring-amber-500/40'
+                  : 'bg-slate-900/80 border-slate-800 text-slate-300 hover:text-slate-100 hover:border-slate-700'
+              }`}
+              title="Inverter verticalmente (de ponta cabeça)"
+            >
+              <FlipVertical className="w-4 h-4 text-amber-400" />
+              <span>Inverter Vert.</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Rotacionar Imagem (Giro) */}
+        <div className="space-y-1.5 pt-1">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] text-slate-400 font-medium">Rotacionar Foto</span>
+            <span className="text-[10px] font-mono font-bold text-amber-300 bg-slate-900 px-1.5 py-0.5 rounded border border-slate-800">
+              {transform.rotation ? `${transform.rotation}°` : '0°'}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-3 gap-1.5">
+            {/* Girar -90° */}
+            <button
+              type="button"
+              onClick={() => {
+                updateConfig((prev) => {
+                  const current = prev.imageTransform || { scale: 100, offsetX: 0, offsetY: 0, rotation: 0 };
+                  const nextRot = ((current.rotation || 0) - 90 + 360) % 360;
+                  return {
+                    ...prev,
+                    imageTransform: {
+                      ...current,
+                      rotation: nextRot === 0 ? 0 : nextRot > 180 ? nextRot - 360 : nextRot,
+                    },
+                  };
+                });
+              }}
+              className="py-1.5 px-2 rounded-lg bg-slate-900/80 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 text-slate-300 hover:text-amber-300 text-[11px] font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-sm active:scale-95"
+              title="Girar 90 graus à esquerda (anti-horário)"
+            >
+              <RotateCcw className="w-3.5 h-3.5 text-amber-400" />
+              <span>-90°</span>
+            </button>
+
+            {/* Girar +90° */}
+            <button
+              type="button"
+              onClick={() => {
+                updateConfig((prev) => {
+                  const current = prev.imageTransform || { scale: 100, offsetX: 0, offsetY: 0, rotation: 0 };
+                  const nextRot = ((current.rotation || 0) + 90) % 360;
+                  return {
+                    ...prev,
+                    imageTransform: {
+                      ...current,
+                      rotation: nextRot === 0 ? 0 : nextRot > 180 ? nextRot - 360 : nextRot,
+                    },
+                  };
+                });
+              }}
+              className="py-1.5 px-2 rounded-lg bg-slate-900/80 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 text-slate-300 hover:text-amber-300 text-[11px] font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-sm active:scale-95"
+              title="Girar 90 graus à direita (horário)"
+            >
+              <RotateCw className="w-3.5 h-3.5 text-amber-400" />
+              <span>+90°</span>
+            </button>
+
+            {/* Girar 180° */}
+            <button
+              type="button"
+              onClick={() => {
+                updateConfig((prev) => {
+                  const current = prev.imageTransform || { scale: 100, offsetX: 0, offsetY: 0, rotation: 0 };
+                  const nextRot = ((current.rotation || 0) + 180) % 360;
+                  return {
+                    ...prev,
+                    imageTransform: {
+                      ...current,
+                      rotation: nextRot === 0 ? 0 : nextRot > 180 ? nextRot - 360 : nextRot,
+                    },
+                  };
+                });
+              }}
+              className="py-1.5 px-2 rounded-lg bg-slate-900/80 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 text-slate-300 hover:text-amber-300 text-[11px] font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-sm active:scale-95"
+              title="Girar 180 graus (inverter orientação)"
+            >
+              <RefreshCw className="w-3.5 h-3.5 text-amber-400" />
+              <span>180°</span>
+            </button>
+          </div>
+
+          {/* Ajuste Fino de Ângulo (Slider + Controles) */}
+          <div className="space-y-1 pt-2">
+            <div className="flex justify-between items-center text-[10px] text-slate-400">
+              <span>Ajuste Fino de Inclinação</span>
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    updateConfig((prev) => {
+                      const current = prev.imageTransform || { scale: 100, offsetX: 0, offsetY: 0, rotation: 0 };
+                      return {
+                        ...prev,
+                        imageTransform: {
+                          ...current,
+                          rotation: Math.max(-180, (current.rotation || 0) - 1),
+                        },
+                      };
+                    });
+                  }}
+                  className="w-5 h-5 rounded bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-300 flex items-center justify-center text-[10px] font-mono cursor-pointer transition-colors"
+                  title="Diminuir 1 grau (-1°)"
+                >
+                  -1°
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    updateConfig((prev) => {
+                      const current = prev.imageTransform || { scale: 100, offsetX: 0, offsetY: 0, rotation: 0 };
+                      return {
+                        ...prev,
+                        imageTransform: {
+                          ...current,
+                          rotation: Math.min(180, (current.rotation || 0) + 1),
+                        },
+                      };
+                    });
+                  }}
+                  className="w-5 h-5 rounded bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-300 flex items-center justify-center text-[10px] font-mono cursor-pointer transition-colors"
+                  title="Aumentar 1 grau (+1°)"
+                >
+                  +1°
+                </button>
+              </div>
+            </div>
+            <input
+              type="range"
+              min="-180"
+              max="180"
+              step="1"
+              value={transform.rotation || 0}
+              onChange={(e) => {
+                const val = parseInt(e.target.value);
+                updateConfig((prev) => ({
+                  ...prev,
+                  imageTransform: {
+                    ...(prev.imageTransform || { scale: 100, offsetX: 0, offsetY: 0 }),
+                    rotation: val,
+                  },
+                }));
+              }}
+              className="w-full accent-amber-500 cursor-pointer"
+            />
+            {/* Quick Angle Chips */}
+            <div className="flex items-center justify-between text-[9px] text-slate-500 font-mono px-0.5">
+              <button
+                type="button"
+                onClick={() =>
+                  updateConfig((prev) => ({
+                    ...prev,
+                    imageTransform: {
+                      ...(prev.imageTransform || { scale: 100, offsetX: 0, offsetY: 0 }),
+                      rotation: -90,
+                    },
+                  }))
+                }
+                className="hover:text-amber-300 cursor-pointer"
+              >
+                -90°
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  updateConfig((prev) => ({
+                    ...prev,
+                    imageTransform: {
+                      ...(prev.imageTransform || { scale: 100, offsetX: 0, offsetY: 0 }),
+                      rotation: 0,
+                    },
+                  }))
+                }
+                className={`cursor-pointer ${
+                  (transform.rotation || 0) === 0 ? 'text-amber-400 font-bold' : 'hover:text-amber-300'
+                }`}
+              >
+                0°
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  updateConfig((prev) => ({
+                    ...prev,
+                    imageTransform: {
+                      ...(prev.imageTransform || { scale: 100, offsetX: 0, offsetY: 0 }),
+                      rotation: 90,
+                    },
+                  }))
+                }
+                className="hover:text-amber-300 cursor-pointer"
+              >
+                +90°
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  updateConfig((prev) => ({
+                    ...prev,
+                    imageTransform: {
+                      ...(prev.imageTransform || { scale: 100, offsetX: 0, offsetY: 0 }),
+                      rotation: 180,
+                    },
+                  }))
+                }
+                className="hover:text-amber-300 cursor-pointer"
+              >
+                180°
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Ajustes de Enquadramento, Zoom e Pan */}
       <div className="space-y-3 bg-slate-950/60 p-3.5 rounded-xl border border-slate-800/80">
         <div className="flex items-center justify-between">
@@ -98,11 +416,16 @@ export const ProporcaoSection: React.FC<ProporcaoSectionProps> = ({
             onClick={() =>
               updateConfig((prev) => ({
                 ...prev,
-                imageTransform: { scale: 100, offsetX: 0, offsetY: 0 },
+                imageTransform: {
+                  ...(prev.imageTransform || { rotation: 0, flipHorizontal: false, flipVertical: false }),
+                  scale: 100,
+                  offsetX: 0,
+                  offsetY: 0,
+                },
               }))
             }
             className="text-[10px] text-slate-400 hover:text-amber-300 flex items-center gap-1 cursor-pointer transition-colors"
-            title="Resetar enquadramento"
+            title="Resetar escala e posição"
           >
             <RotateCcw className="w-3 h-3" />
             <span>Resetar</span>

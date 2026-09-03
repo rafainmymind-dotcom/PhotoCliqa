@@ -68,15 +68,10 @@ import {
   Move,
   ZoomIn,
   ZoomOut,
-  ArrowUp,
-  ArrowDown,
-  ArrowLeft,
-  ArrowRight,
   Circle,
   Square,
   Pencil,
   Compass,
-  Hand,
   PanelLeftClose,
   PanelLeftOpen,
   Copy,
@@ -90,6 +85,9 @@ import {
   ChevronLeft,
   Images,
   Trash2,
+  RotateCw,
+  FlipHorizontal,
+  FlipVertical,
 } from 'lucide-react';
 
 interface EditorWorkspacePageProps {
@@ -169,9 +167,37 @@ export const EditorWorkspacePage: React.FC<EditorWorkspacePageProps> = ({
   // Viewport Preview Zoom & Pan (apenas visualização sem afetar dimensões de exportação/edição)
   const [previewZoom, setPreviewZoom] = useState<number>(100);
   const [viewportPan, setViewportPan] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
-  const [isViewportPanMode, setIsViewportPanMode] = useState<boolean>(false);
   const [isDraggingViewport, setIsDraggingViewport] = useState<boolean>(false);
   const [viewportDragStart, setViewportDragStart] = useState<{ x: number; y: number } | null>(null);
+
+  // Scroll do mouse: sobe e desce a imagem (ajuste vertical da visualização)
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const handleWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      if (e.ctrlKey || e.metaKey) {
+        // Zoom rápido com Ctrl/Cmd + scroll
+        if (e.deltaY < 0) {
+          setPreviewZoom((prev) => Math.min(300, prev + 15));
+        } else {
+          setPreviewZoom((prev) => Math.max(40, prev - 15));
+        }
+      } else {
+        // Subir e descer a imagem pelo scroll do mouse
+        setViewportPan((prev) => ({
+          x: Math.abs(e.deltaX) > 0 ? prev.x - e.deltaX * 0.75 : prev.x,
+          y: prev.y - e.deltaY * 0.75,
+        }));
+      }
+    };
+
+    container.addEventListener('wheel', handleWheel, { passive: false });
+    return () => {
+      container.removeEventListener('wheel', handleWheel);
+    };
+  }, []);
 
   // Drawing & Panning States
   const [isDrawingEraser, setIsDrawingEraser] = useState(false);
@@ -578,8 +604,8 @@ export const EditorWorkspacePage: React.FC<EditorWorkspacePageProps> = ({
   const handleCanvasMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
     if (!canvasRef.current) return;
 
-    // 0. Viewport Pan Mode (navegar livremente pela imagem com zoom em todos os sentidos)
-    if (isViewportPanMode || e.button === 1 || e.altKey) {
+    // 0. Viewport Pan (mover viewport ao segurar botão do meio ou tecla Alt)
+    if (e.button === 1 || e.altKey) {
       setIsDraggingViewport(true);
       setViewportDragStart({ x: e.clientX - viewportPan.x, y: e.clientY - viewportPan.y });
       return;
@@ -901,7 +927,7 @@ export const EditorWorkspacePage: React.FC<EditorWorkspacePageProps> = ({
     { id: 'faixa', label: 'Faixa', icon: Award, shortcut: 'F', activeState: Boolean(currentImage.modelData.novidade ?? currentImage.modelData.etiquetaAtiva ?? config.profileCard?.etiquetaAtiva) },
     { id: 'fundo_preto', label: 'Fundo Preto & Sombra', icon: Moon, shortcut: 'B', activeState: Boolean(config.profileCard?.sombraAtiva !== false || (config.filters && config.filters.fundoPretoInferiorDensidade && config.filters.fundoPretoInferiorDensidade > 0)) },
     { id: 'organizacao', label: 'Organização', icon: Layers, shortcut: 'O', activeState: Boolean(config.organization?.isGrouped) },
-    { id: 'ajuste_imagem', label: 'Proporção & Enquadrar', icon: Move, shortcut: 'P', activeState: true },
+    { id: 'ajuste_imagem', label: 'Proporção, Giro & Inverter', icon: Move, shortcut: 'P', activeState: true },
     { id: 'desfoque', label: 'Desfoque', icon: ShieldAlert, shortcut: 'D', activeState: Boolean(config.pixelateBlur.active) },
     { id: 'logo', label: 'Logo', icon: Sparkles, shortcut: 'L', activeState: Boolean(config.logoOverlay.active) },
     { id: 'filtros', label: 'Filtros & Cores', icon: Sliders, shortcut: 'C', activeState: Boolean(config.filters && (config.filters.brightness !== 100 || config.filters.contrast !== 100 || config.filters.saturation !== 100 || config.filters.vignette > 0)) },
@@ -1119,6 +1145,21 @@ export const EditorWorkspacePage: React.FC<EditorWorkspacePageProps> = ({
 
         {/* Right side of Top Bar: Actions */}
         <div className="flex items-center gap-2">
+          {/* Duplicar em Todos (Copia apenas Logo, Nome, Dados e Novidade) */}
+          <button
+            type="button"
+            onClick={() => {
+              onDuplicateToAll();
+              showToast(`Informações de logo, nome, dados e novidade duplicadas para todas as ${images.length} fotos!`);
+            }}
+            title="Duplicar em todos: replica logo, nome, dados e novidade para todas as fotos (sem alterar proporção, blur ou inversão/rotação de cada foto)"
+            className="px-2.5 py-1 rounded-lg bg-slate-950 hover:bg-slate-800 text-amber-300 border border-slate-700 hover:border-amber-500/60 flex items-center gap-1.5 text-xs font-semibold transition-all cursor-pointer shadow-sm active:scale-95"
+          >
+            <Copy className="w-3.5 h-3.5 text-amber-400" />
+            <span className="hidden md:inline">Duplicar em Todos</span>
+            <span className="md:hidden">Todos</span>
+          </button>
+
           {/* Preset Salvar / Abrir */}
           <button
             type="button"
@@ -1363,10 +1404,10 @@ export const EditorWorkspacePage: React.FC<EditorWorkspacePageProps> = ({
         <div
           ref={containerRef}
           className={`flex-1 flex items-center justify-center relative p-4 sm:p-6 bg-zinc-950 overflow-hidden select-none ${
-            isViewportPanMode ? (isDraggingViewport ? 'cursor-grabbing' : 'cursor-grab') : ''
+            isDraggingViewport ? 'cursor-grabbing' : 'cursor-default'
           }`}
           onMouseDown={(e) => {
-            if (isViewportPanMode || e.button === 1 || e.altKey) {
+            if (e.button === 1 || e.altKey) {
               setIsDraggingViewport(true);
               setViewportDragStart({ x: e.clientX - viewportPan.x, y: e.clientY - viewportPan.y });
             }
@@ -1385,20 +1426,134 @@ export const EditorWorkspacePage: React.FC<EditorWorkspacePageProps> = ({
               setViewportDragStart(null);
             }
           }}
-          onWheel={(e) => {
-            if (e.ctrlKey || e.metaKey || isViewportPanMode) {
-              e.preventDefault();
-              if (e.deltaY < 0) {
-                setPreviewZoom((prev) => Math.min(300, prev + 25));
-              } else {
-                setPreviewZoom((prev) => Math.max(40, prev - 25));
-              }
-            }
-          }}
         >
-          {/* Dedicated Zoom & Pan Tool (Docked top right of canvas stage) */}
+          {/* Quick Image Orientation & Flip Toolbar (Inverter & Girar Rápido no Canvas) */}
+          <div className="absolute left-4 top-4 z-30 flex items-center bg-slate-900/95 backdrop-blur-md border border-slate-700/80 rounded-2xl p-1 shadow-2xl gap-1">
+            {/* Inverter Horizontal (Espelhar foto) */}
+            <button
+              type="button"
+              onClick={() => {
+                updateConfig((prev) => {
+                  const curr = prev.imageTransform || { scale: 100, offsetX: 0, offsetY: 0, rotation: 0 };
+                  const nextFlip = !curr.flipHorizontal;
+                  return {
+                    ...prev,
+                    imageTransform: { ...curr, flipHorizontal: nextFlip },
+                  };
+                });
+                showToast(config.imageTransform?.flipHorizontal ? 'Inversão horizontal desativada' : 'Imagem invertida horizontalmente (espelhada)');
+              }}
+              title="Inverter Horizontalmente (Espelho lateral)"
+              className={`p-1.5 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
+                config.imageTransform?.flipHorizontal
+                  ? 'bg-amber-500 text-slate-950 font-black shadow-md shadow-amber-500/30'
+                  : 'text-slate-300 hover:text-amber-300 hover:bg-slate-800'
+              }`}
+            >
+              <FlipHorizontal className="w-4 h-4" />
+            </button>
+
+            {/* Inverter Vertical */}
+            <button
+              type="button"
+              onClick={() => {
+                updateConfig((prev) => {
+                  const curr = prev.imageTransform || { scale: 100, offsetX: 0, offsetY: 0, rotation: 0 };
+                  const nextFlip = !curr.flipVertical;
+                  return {
+                    ...prev,
+                    imageTransform: { ...curr, flipVertical: nextFlip },
+                  };
+                });
+                showToast(config.imageTransform?.flipVertical ? 'Inversão vertical desativada' : 'Imagem invertida verticalmente');
+              }}
+              title="Inverter Verticalmente (De ponta cabeça)"
+              className={`p-1.5 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
+                config.imageTransform?.flipVertical
+                  ? 'bg-amber-500 text-slate-950 font-black shadow-md shadow-amber-500/30'
+                  : 'text-slate-300 hover:text-amber-300 hover:bg-slate-800'
+              }`}
+            >
+              <FlipVertical className="w-4 h-4" />
+            </button>
+
+            <div className="w-px h-4 bg-slate-700/60 my-auto" />
+
+            {/* Girar -90° */}
+            <button
+              type="button"
+              onClick={() => {
+                updateConfig((prev) => {
+                  const curr = prev.imageTransform || { scale: 100, offsetX: 0, offsetY: 0 };
+                  const nextRot = ((curr.rotation || 0) - 90 + 360) % 360;
+                  const normalized = nextRot === 0 ? 0 : nextRot > 180 ? nextRot - 360 : nextRot;
+                  return {
+                    ...prev,
+                    imageTransform: {
+                      ...curr,
+                      rotation: normalized,
+                    },
+                  };
+                });
+              }}
+              title="Girar 90° à esquerda (anti-horário)"
+              className="p-1.5 rounded-xl text-slate-300 hover:text-amber-300 hover:bg-slate-800 transition-all cursor-pointer"
+            >
+              <RotateCcw className="w-4 h-4" />
+            </button>
+
+            {/* Girar +90° */}
+            <button
+              type="button"
+              onClick={() => {
+                updateConfig((prev) => {
+                  const curr = prev.imageTransform || { scale: 100, offsetX: 0, offsetY: 0 };
+                  const nextRot = ((curr.rotation || 0) + 90) % 360;
+                  const normalized = nextRot === 0 ? 0 : nextRot > 180 ? nextRot - 360 : nextRot;
+                  return {
+                    ...prev,
+                    imageTransform: {
+                      ...curr,
+                      rotation: normalized,
+                    },
+                  };
+                });
+              }}
+              title="Girar 90° à direita (horário)"
+              className="p-1.5 rounded-xl text-slate-300 hover:text-amber-300 hover:bg-slate-800 transition-all cursor-pointer"
+            >
+              <RotateCw className="w-4 h-4" />
+            </button>
+
+            {/* Badge de Ângulo / Reset se alterado */}
+            {((config.imageTransform?.rotation || 0) !== 0 ||
+              config.imageTransform?.flipHorizontal ||
+              config.imageTransform?.flipVertical) && (
+              <button
+                type="button"
+                onClick={() => {
+                  updateConfig((prev) => ({
+                    ...prev,
+                    imageTransform: {
+                      ...(prev.imageTransform || { scale: 100, offsetX: 0, offsetY: 0 }),
+                      rotation: 0,
+                      flipHorizontal: false,
+                      flipVertical: false,
+                    },
+                  }));
+                  showToast('Orientação da imagem redefinida para 0°');
+                }}
+                title="Redefinir giro e espelhamento para o padrão"
+                className="px-2 py-0.5 rounded-lg bg-amber-500/20 text-amber-300 text-[10px] font-mono font-bold hover:bg-amber-500/30 transition-colors cursor-pointer ml-0.5"
+              >
+                {config.imageTransform?.rotation || 0}°
+              </button>
+            )}
+          </div>
+
+          {/* Dedicated Zoom & Screen Fit (Docked top right of canvas stage) */}
           <div className="absolute right-4 top-4 z-30 flex flex-col items-center bg-slate-900/95 backdrop-blur-md border border-slate-700/80 rounded-2xl p-1.5 shadow-2xl space-y-1.5">
-            <div className="text-[10px] text-amber-400 font-semibold px-1 pt-0.5 flex flex-col items-center gap-0.5" title="Zoom & Navegação Panorâmica">
+            <div className="text-[10px] text-amber-400 font-semibold px-1 pt-0.5 flex flex-col items-center gap-0.5" title="Zoom da visualização">
               <ZoomIn className="w-3.5 h-3.5 text-amber-400" />
               <span className="text-[9px] uppercase tracking-wider text-slate-400 font-bold">Zoom</span>
             </div>
@@ -1415,7 +1570,7 @@ export const EditorWorkspacePage: React.FC<EditorWorkspacePageProps> = ({
 
             {/* Current Zoom Level Badge */}
             <div
-              className="px-1.5 py-0.5 rounded-lg bg-slate-950 border border-slate-800 text-[10px] font-mono font-bold text-amber-300 min-w-[42px] text-center shadow-inner"
+              className="px-1.5 py-0.5 rounded-lg bg-slate-950 border border-slate-800 text-[10px] font-mono font-bold text-amber-300 min-w-[42px] text-center shadow-inner select-none"
               title="Nível de zoom da visualização"
             >
               {previewZoom}%
@@ -1434,23 +1589,6 @@ export const EditorWorkspacePage: React.FC<EditorWorkspacePageProps> = ({
             {/* Separator */}
             <div className="w-6 h-px bg-slate-700/60 my-0.5" />
 
-            {/* Pan / Move Tool Toggle (Mãozinha para arrastar e ver todos os cantos) */}
-            <button
-              onClick={() => setIsViewportPanMode((prev) => !prev)}
-              title={
-                isViewportPanMode
-                  ? 'Desativar Modo Pan (Arrastar Tela)'
-                  : 'Ativar Modo Pan / Mover Foto (Navegar por todos os cantos da imagem)'
-              }
-              className={`w-8 h-8 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
-                isViewportPanMode
-                  ? 'bg-amber-500 text-slate-950 font-black shadow-lg shadow-amber-500/30 ring-2 ring-amber-400'
-                  : 'bg-slate-800/90 hover:bg-slate-700 text-slate-300 hover:text-amber-300'
-              }`}
-            >
-              <Hand className="w-4 h-4" />
-            </button>
-
             {/* Quick Reset 100% (1:1) & Center */}
             <button
               onClick={() => {
@@ -1466,52 +1604,6 @@ export const EditorWorkspacePage: React.FC<EditorWorkspacePageProps> = ({
             >
               Fit
             </button>
-
-            {/* Directional Nudge Pad (quando em zoom para explorar cantos) */}
-            {(previewZoom > 100 || viewportPan.x !== 0 || viewportPan.y !== 0) && (
-              <>
-                <div className="w-6 h-px bg-slate-700/60 my-0.5" />
-                <div className="flex flex-col items-center gap-0.5 bg-slate-950/80 p-1 rounded-xl border border-slate-800">
-                  <button
-                    onClick={() => setViewportPan((p) => ({ ...p, y: p.y + 60 }))}
-                    className="p-1 text-slate-300 hover:text-amber-400 hover:bg-slate-800 rounded"
-                    title="Navegar para Cima"
-                  >
-                    <ArrowUp className="w-3 h-3" />
-                  </button>
-                  <div className="flex items-center gap-1">
-                    <button
-                      onClick={() => setViewportPan((p) => ({ ...p, x: p.x + 60 }))}
-                      className="p-1 text-slate-300 hover:text-amber-400 hover:bg-slate-800 rounded"
-                      title="Navegar para Esquerda"
-                    >
-                      <ArrowLeft className="w-3 h-3" />
-                    </button>
-                    <button
-                      onClick={() => setViewportPan({ x: 0, y: 0 })}
-                      className="text-[8px] font-mono text-amber-400 hover:bg-slate-800 px-1 py-0.5 rounded"
-                      title="Centralizar Pan"
-                    >
-                      •
-                    </button>
-                    <button
-                      onClick={() => setViewportPan((p) => ({ ...p, x: p.x - 60 }))}
-                      className="p-1 text-slate-300 hover:text-amber-400 hover:bg-slate-800 rounded"
-                      title="Navegar para Direita"
-                    >
-                      <ArrowRight className="w-3 h-3" />
-                    </button>
-                  </div>
-                  <button
-                    onClick={() => setViewportPan((p) => ({ ...p, y: p.y - 60 }))}
-                    className="p-1 text-slate-300 hover:text-amber-400 hover:bg-slate-800 rounded"
-                    title="Navegar para Baixo"
-                  >
-                    <ArrowDown className="w-3 h-3" />
-                  </button>
-                </div>
-              </>
-            )}
           </div>
 
           {/* Canvas Wrapper with Zoom & 2D Pan Transform */}
@@ -1544,8 +1636,6 @@ export const EditorWorkspacePage: React.FC<EditorWorkspacePageProps> = ({
                 className={`max-h-[min(72vh,780px)] max-w-[min(90vw,780px)] w-auto h-auto object-contain rounded-lg shadow-2xl transition-transform border border-slate-800/80 ${
                   config.magicEraser.active
                     ? 'cursor-crosshair'
-                    : isViewportPanMode
-                    ? 'cursor-grab'
                     : hoveredElementId
                     ? 'cursor-pointer'
                     : 'cursor-move'
@@ -1564,6 +1654,87 @@ export const EditorWorkspacePage: React.FC<EditorWorkspacePageProps> = ({
                 onCenterElementVertical={handleCenterElementVertical}
                 onResetElementOffset={handleResetElementOffset}
               />
+            </div>
+          </div>
+
+          {/* Barra Inferior de Ajuste de Tela & Zoom (Esquerda Dá Zoom, Direita Tira Zoom) */}
+          <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-30 flex items-center bg-slate-900/95 backdrop-blur-md border border-slate-700/80 rounded-2xl px-3 py-1.5 shadow-2xl gap-2 max-w-[95vw]">
+            {/* Botão Dá Zoom (+) */}
+            <button
+              type="button"
+              onClick={() => setPreviewZoom((prev) => Math.min(300, prev + 15))}
+              disabled={previewZoom >= 300}
+              title="Aproximar / Dá Zoom (+)"
+              className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-slate-800 hover:bg-amber-500 hover:text-slate-950 text-slate-200 font-bold text-xs transition-all cursor-pointer disabled:opacity-30 disabled:pointer-events-none active:scale-95 shadow-sm"
+            >
+              <ZoomIn className="w-3.5 h-3.5 text-amber-400" />
+              <span className="hidden sm:inline">Dá Zoom</span>
+            </button>
+
+            {/* Barra de Ajuste (Slider): Esquerda Dá Zoom, Direita Tira Zoom */}
+            <div className="flex items-center gap-2 px-1.5">
+              <span className="text-[10px] text-amber-400 font-mono font-bold select-none whitespace-nowrap">◀ Mais Zoom</span>
+              <input
+                type="range"
+                min={0}
+                max={100}
+                step={1}
+                value={Math.round(((300 - previewZoom) / (300 - 40)) * 100)}
+                onChange={(e) => {
+                  const v = Number(e.target.value);
+                  const calculatedZoom = Math.round(300 - (v / 100) * (300 - 40));
+                  setPreviewZoom(calculatedZoom);
+                }}
+                className="w-28 sm:w-44 md:w-56 h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-amber-400 hover:bg-slate-700 transition-colors"
+                title="Arraste para a esquerda para dar zoom (+) ou para a direita para tirar o zoom (-)"
+              />
+              <span className="text-[10px] text-slate-400 font-mono font-bold select-none whitespace-nowrap">Tira Zoom ▶</span>
+            </div>
+
+            {/* Botão Tira Zoom (-) */}
+            <button
+              type="button"
+              onClick={() => setPreviewZoom((prev) => Math.max(40, prev - 15))}
+              disabled={previewZoom <= 40}
+              title="Afastar / Tira Zoom (-)"
+              className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-slate-800 hover:bg-amber-500 hover:text-slate-950 text-slate-200 font-bold text-xs transition-all cursor-pointer disabled:opacity-30 disabled:pointer-events-none active:scale-95 shadow-sm"
+            >
+              <ZoomOut className="w-3.5 h-3.5 text-slate-300" />
+              <span className="hidden sm:inline">Tira Zoom</span>
+            </button>
+
+            {/* Nível de Zoom */}
+            <div
+              className="px-2 py-0.5 rounded-lg bg-slate-950 border border-slate-800 text-[11px] font-mono font-bold text-amber-300 min-w-[44px] text-center shadow-inner select-none"
+              title="Nível de zoom atual da tela"
+            >
+              {previewZoom}%
+            </div>
+
+            {/* Botão Ajustar (Fit 100% e Centralizar) */}
+            <button
+              type="button"
+              onClick={() => {
+                setPreviewZoom(100);
+                setViewportPan({ x: 0, y: 0 });
+              }}
+              title="Ajustar à tela e centralizar (100% Fit)"
+              className={`px-2.5 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                previewZoom === 100 && viewportPan.x === 0 && viewportPan.y === 0
+                  ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/20 font-black'
+                  : 'bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-amber-300'
+              }`}
+            >
+              Ajustar
+            </button>
+
+            {/* Dica do Scroll do Mouse */}
+            <div
+              className="hidden lg:flex items-center gap-1 text-[10px] text-slate-400 border-l border-slate-800 pl-2 select-none whitespace-nowrap"
+              title="Gire a rodinha (scroll) do mouse para cima e para baixo para movimentar e visualizar a foto por inteiro"
+            >
+              <span className="text-slate-500">Scroll:</span>
+              <span className="text-slate-300 font-medium">Sobe/Desce</span>
             </div>
           </div>
         </div>
@@ -1662,10 +1833,26 @@ export const EditorWorkspacePage: React.FC<EditorWorkspacePageProps> = ({
           })}
         </div>
 
-        {/* Counter */}
-        <div className="hidden md:flex flex-col items-end text-[9px] text-slate-400 shrink-0 border-l border-slate-800 pl-2.5">
-          <span className="text-amber-300 font-bold">{images.length} foto(s)</span>
-          <span className="text-slate-400">Total na fila</span>
+        {/* Counter & Quick Duplication to All */}
+        <div className="hidden md:flex items-center gap-2 shrink-0 border-l border-slate-800 pl-2.5">
+          {images.length > 1 && (
+            <button
+              type="button"
+              onClick={() => {
+                onDuplicateToAll();
+                showToast(`Informações de logo, nome, dados e novidade duplicadas para todas as ${images.length} fotos!`);
+              }}
+              title="Copiar apenas logo, nome, dados e novidade para todas as fotos da fila (mantendo blur, dimensão e rotação de cada foto)"
+              className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-300 hover:text-amber-200 text-[10px] font-bold transition-all cursor-pointer shadow-sm border border-slate-700"
+            >
+              <Copy className="w-3 h-3 text-amber-400" />
+              <span>Duplicar em Todas</span>
+            </button>
+          )}
+          <div className="flex flex-col items-end text-[9px] text-slate-400">
+            <span className="text-amber-300 font-bold">{images.length} foto(s)</span>
+            <span className="text-slate-400">Total na fila</span>
+          </div>
         </div>
       </div>
 

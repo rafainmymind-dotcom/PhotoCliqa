@@ -154,6 +154,9 @@ export interface ImageTransformConfig {
   scale: number; // 30% to 300% (default 100)
   offsetX: number; // -100 to 100 (% offset X)
   offsetY: number; // -100 to 100 (% offset Y)
+  rotation?: number; // rotation in degrees (-180 to 180 or 0 to 360, default 0)
+  flipHorizontal?: boolean; // invert horizontally / mirror (default false)
+  flipVertical?: boolean; // invert vertically / upside down (default false)
 }
 
 export type MagicEraserMode = 'tattoo' | 'object';
